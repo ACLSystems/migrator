@@ -7,16 +7,19 @@ async function migrateCourse(courseCode) {
 	const c = require('./lib/course');
 	const course = await c.get(courseCode);
 	if(course.status === 200){
-		console.log(`Curso ${courseCode} obtenido de origen`);
+		console.log(`Curso ${course.data.course.title} obtenido de origen`);
 		const newCourse = await c.create(course.data.course);
 		var courseId;
 		if(newCourse && newCourse.status === 201) {
 			courseId = newCourse.data.id;
 			console.log(`Curso ${courseCode} creado en Destino correctamente con id ${courseId}`);
+			console.log(`Respuesta creación curso ${courseCode}:`);
+			console.log(newCourse.data);
 		} else if(newCourse.status === 406
 			& newCourse.data.message === 'Error 1447: course -DP-101- already exists') {
 			courseId = newCourse.data.id;
 			console.log(`Curso ${courseCode} ya existe en Destino con id ${courseId}`);
+			process.exit(0);
 		}
 		/*
 		* Ahora obtener y generar los bloques
@@ -42,7 +45,8 @@ async function migrateCourse(courseCode) {
 						console.log(response.data);
 						const newBlockId = response.data.id;
 						if(response.status === 200) {
-							if(block.questionnarie && block.questionnarie.qstnnId) {
+							if(block.blockType === 'questionnarie' &&
+							block.questionnarie && block.questionnarie.qstnnId) {
 								/*
 									* Vemos si hay cuestionario
 									* y lo creamos
@@ -50,6 +54,17 @@ async function migrateCourse(courseCode) {
 								console.log('Generando cuestionario');
 								response = await c.createQuestionnarie(newBlockId,block);
 								console.log(`Respuesta cuestionario para bloque ${i}:`);
+								console.log(response.data);
+							}
+							if(block.blockType === 'task' &&
+							block.task && block.task.taskId) {
+								/*
+									* Vemos si hay tarea
+									* y la creamos
+								*/
+								console.log('Generando tarea');
+								response = await c.createTasks(newBlockId,block);
+								console.log(`Respuesta tarea para bloque ${i}:`);
 								console.log(response.data);
 							}
 							/*
@@ -69,6 +84,38 @@ async function migrateCourse(courseCode) {
 					} else {
 						console.log(`No encontramos bloque con id ${blocks[i]}`);
 					}
+				}
+				/*
+					* Vemos si hay recursos disponibles
+					* y los creamos
+				*/
+				console.log('Localizando recursos');
+				response = await c.getResources(courseCode);
+				if(response.data.message
+					&& Array.isArray(response.data.message) &&
+					response.data.message.length > 0
+				) {
+					let resources = response.data.message;
+					console.log(`Creando ${resources.length} recursos`);
+					for(i=0; i < resources.length; i++) {
+						response = await c.createResource(
+							courseCode,
+							resources[i].title,
+							resources[i].content,
+							resources[i].embedded,
+							resources[i].status,
+							resources[i].isVisible
+						);
+						console.log(`Respuesta creacion de recurso ${i}`);
+						console.log(response.data);
+						if(response.status === 200 || response.status === 201) {
+							console.log(`Recurso ${i} creado`);
+						} else {
+							console.log(`Hubo un problema al crear el recurso ${i}`);
+						}
+					}
+				} else {
+					console.log('No hay recursos para crear');
 				}
 				response = await c.setNextSection(courseCode,section,number);
 				if(response.status === 200) {
