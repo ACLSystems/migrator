@@ -1,4 +1,24 @@
+const colors = require('colors');
 const cmd = process.argv[2];
+
+colors.setTheme({
+	silly: 'rainbow',
+	input: 'grey',
+	verbose: 'cyan',
+	prompt: 'grey',
+	info: 'green',
+	data: 'grey',
+	help: 'cyan',
+	warn: 'yellow',
+	debug: 'blue',
+	error: 'red'
+});
+
+var error = colors.red;
+var warn = colors.warn;
+var info = colors.info;
+var data = colors.data;
+var verbose = colors.verbose;
 
 async function migrateCourse(courseCode) {
 	/*
@@ -7,18 +27,18 @@ async function migrateCourse(courseCode) {
 	const c = require('./lib/course');
 	const course = await c.get(courseCode);
 	if(course.status === 200){
-		console.log(`Curso ${course.data.course.title} obtenido de origen`);
+		console.log(verbose('Curso ') + warn(course.data.course.title) + verbose(' obtenido de origen'));
 		const newCourse = await c.create(course.data.course);
 		var courseId;
 		if(newCourse && newCourse.status === 201) {
 			courseId = newCourse.data.id;
-			console.log(`Curso ${courseCode} creado en Destino correctamente con id ${courseId}`);
-			console.log(`Respuesta creación curso ${courseCode}:`);
+			console.log(info('Curso ') + verbose(courseCode) + info(' creado en Destino correctamente con id ') + verbose(courseId));
+			console.log(data('Respuesta creación curso ') + verbose(courseCode) + data(':'));
 			console.log(newCourse.data);
 		} else if(newCourse.status === 406
-			& newCourse.data.message === 'Error 1447: course -DP-101- already exists') {
+			& newCourse.data.message === 'Error 1447: course -' + courseCode + '- already exists') {
 			courseId = newCourse.data.id;
-			console.log(`Curso ${courseCode} ya existe en Destino con id ${courseId}`);
+			console.log(warn('Curso ') + verbose(courseCode) + warn(' ya existe en Destino con id ') + verbose(courseId));
 			process.exit(0);
 		}
 		/*
@@ -31,7 +51,9 @@ async function migrateCourse(courseCode) {
 			//console.log(course.data.course.blocks);
 			if(course.data.course.blocks && Array.isArray(course.data.course.blocks) && course.data.course.blocks.length > 0) {
 				let blocks = course.data.course.blocks;
-				for(var i=0; i< blocks.length; i++) {
+				let blockNum = blocks.length;
+				console.log(verbose('Generando ') + warn(blockNum) + verbose(' bloques para ') + warn(courseCode));
+				for(var i=0; i< blockNum; i++) {
 					/* Obtener bloque */
 					response = await c.getBlock(blocks[i]);
 					if(response.data.status === 200){
@@ -39,9 +61,9 @@ async function migrateCourse(courseCode) {
 						section = block.blockSection;
 						number = block.blockNumber;
 						/* Creamos el bloque */
-						console.log(`Creando bloque ${i} -----------------------------------`);
+						console.log(verbose('Creando bloque ')+ warn((i+1)+'/'+blockNum) + verbose(' -----------------------------------'));
 						response = await c.createBlock(courseCode,block);
-						console.log(`Respuesta bloque ${i}:`);
+						console.log(data('Respuesta bloque ') + warn(i+1) + data(':'));
 						console.log(response.data);
 						const newBlockId = response.data.id;
 						if(response.status === 200) {
@@ -51,9 +73,9 @@ async function migrateCourse(courseCode) {
 									* Vemos si hay cuestionario
 									* y lo creamos
 								*/
-								console.log('Generando cuestionario');
+								console.log(verbose('Generando cuestionario'));
 								response = await c.createQuestionnarie(newBlockId,block);
-								console.log(`Respuesta cuestionario para bloque ${i}:`);
+								console.log(data('Respuesta cuestionario para bloque ') + warn(i+1)+ data(':'));
 								console.log(response.data);
 							}
 							if(block.blockType === 'task' &&
@@ -62,42 +84,48 @@ async function migrateCourse(courseCode) {
 									* Vemos si hay tarea
 									* y la creamos
 								*/
-								console.log('Generando tarea');
+								console.log(verbose('Generando tarea'));
 								response = await c.createTasks(newBlockId,block);
-								console.log(`Respuesta tarea para bloque ${i}:`);
+								console.log(data('Respuesta tarea para bloque ') + warn(i+1)+ data(':'));
 								console.log(response.data);
+								console.log(verbose('Tarea -----------------'));
 							}
 							/*
 							* Modificamos bloque para
 							* agregarle información adicional
 							*/
-							console.log(`Modificando bloque ${i}`);
+							console.log(verbose('Modificando bloque ') + warn(i+1));
 							response = await c.modifyBlock(newBlockId,block);
-							console.log(`Respuesta modificación bloque ${i}:`);
+							console.log(data('Respuesta modificación bloque ') + warn(i+1)+ data(':'));
 							console.log(response.data);
 							if(response.status === 200) {
-								console.log('Bloque modificado ------------------------------');
+								console.log(info('Bloque ') + warn(i+1) + info(' modificado'));
 							}
 						} else {
-							console.log('Hubo un problema con el bloque ');
+							console.log(error('Hubo un problema con el bloque '));
 						}
 					} else {
-						console.log(`No encontramos bloque con id ${blocks[i]}`);
+						console.log(error(`No encontramos bloque con id ${blocks[i]}`));
 					}
 				}
 				/*
 					* Vemos si hay recursos disponibles
 					* y los creamos
 				*/
-				console.log('Localizando recursos');
+				console.log(verbose('Localizando recursos'));
 				response = await c.getResources(courseCode);
 				if(response.data.message
 					&& Array.isArray(response.data.message) &&
 					response.data.message.length > 0
 				) {
 					let resources = response.data.message;
-					console.log(`Creando ${resources.length} recursos`);
+					if(resources.length === 1) {
+						console.log(verbose('Creando un recurso'));
+					} else {
+						console.log(verbose('Creando ') + warn(resources.length) + verbose(' recursos'));
+					}
 					for(i=0; i < resources.length; i++) {
+						console.log(verbose('Generando recurso ') + warn((i+1)+'/'+resources.length) + verbose(' ------------------'));
 						response = await c.createResource(
 							courseCode,
 							resources[i].title,
@@ -106,35 +134,40 @@ async function migrateCourse(courseCode) {
 							resources[i].status,
 							resources[i].isVisible
 						);
-						console.log(`Respuesta creacion de recurso ${i}`);
+						console.log(data('Respuesta creacion de recurso ') + warn(i+1) + data(':'));
 						console.log(response.data);
 						if(response.status === 200 || response.status === 201) {
-							console.log(`Recurso ${i} creado`);
+							console.log(info('Recurso ') + warn(i+1) + info(' creado'));
 						} else {
-							console.log(`Hubo un problema al crear el recurso ${i}`);
+							console.log(error(`Hubo un problema al crear el recurso ${i + 1}`));
 						}
 					}
 				} else {
-					console.log('No hay recursos para crear');
+					console.log(warn('No hay recursos para crear'));
 				}
 				response = await c.setNextSection(courseCode,section,number);
 				if(response.status === 200) {
 					/*
 					* Por último, activamos curso
 					*/
-					console.log('Activando curso...');
+					console.log(verbose('Activando curso ----------------------------------------------------'));
 					response = await c.activate(courseCode);
 					console.log(response.data);
 					if(response.status === 200) {
-						console.log(`Curso ${courseCode} migrado y activado`);
+						console.log(info('Curso ') + warn(courseCode) + info(' migrado y activado'));
 					}
 				}
 			}
 		}
 	} else {
-		console.log(course.data);
-		console.log(`Curso ${courseCode} no existe en origen o hubo un error al tratar de obtenerlo`);
+		//console.log(warn(course.data));
+		console.log(error(`Curso ${courseCode} no existe en origen o hubo un error al tratar de obtenerlo`));
 	}
+}
+
+if(!cmd) {
+	console.log(warn('Por favor ingrese el comando y el curso a migrar'));
+	process.exit(0);
 }
 
 if(cmd === 'course') {
