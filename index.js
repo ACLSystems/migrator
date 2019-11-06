@@ -165,6 +165,24 @@ async function migrateCourse(courseCode) {
 	}
 }
 
+async function migrateOrgUnits(org,query) {
+	const OrgUnits = require('./lib/orgUnits');
+	const response = await OrgUnits.get(org,query);
+	if(response.data && response.data.message) {
+		var ous = response.data.message.ous;
+		if(ous && Array.isArray(ous) && ous.length > 0) {
+			for(var i=0; i < ous.length; i++) {
+				await OrgUnits.create(ous[i]);
+				console.log(`${ous[i].name} creado`);
+			}
+		} else {
+			console.log(warn('La consulta no trajo resultados'));
+		}
+	} else {
+		console.log(response);
+	}
+}
+
 if(!cmd) {
 	console.log(warn('Por favor ingrese el comando y el curso a migrar'));
 	process.exit(0);
@@ -172,4 +190,10 @@ if(!cmd) {
 
 if(cmd === 'course') {
 	migrateCourse(process.argv[3]);
+} else if(cmd === 'org') {
+	// migrateOrg(process.argv[3]);
+	console.log('org');
+} else if(cmd === 'orgUnits') {
+	let query = JSON.stringify({ parent: process.argv[4]});
+	migrateOrgUnits(process.argv[3], query);
 }
