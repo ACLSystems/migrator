@@ -1,5 +1,6 @@
 const colors = require('colors');
 const cmd = process.argv[2];
+console.log(`command: ${cmd}`);
 
 colors.setTheme({
 	silly: 'rainbow',
@@ -189,6 +190,7 @@ if(!cmd) {
 }
 
 if(cmd === 'course') {
+	console.log(`Migrar curso con clave ${process.argv[3]}`);
 	migrateCourse(process.argv[3]);
 } else if(cmd === 'org') {
 	// migrateOrg(process.argv[3]);
